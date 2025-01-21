@@ -2,6 +2,7 @@ package app
 
 import (
 	grpcapp "github.com/dune6/sso-auth/internal/app/grpc"
+	authgrpc "github.com/dune6/sso-auth/internal/grpc/auth"
 	"log/slog"
 	"time"
 )
