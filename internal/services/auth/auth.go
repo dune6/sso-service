@@ -52,7 +52,11 @@ func New(
 	}
 }
 
-var ErrorInvalidCredentials = errors.New("invalid credentials")
+var (
+	ErrorInvalidCredentials = errors.New("invalid credentials")
+	ErrorInvalidAppId       = errors.New("invalid app id")
+	ErrorUserExists         = errors.New("user already exists")
+)
 
 func (a *Auth) Login(ctx context.Context, email, password string, appId int64) (string, error) {
 	const op = "auth.Login"
@@ -109,11 +113,15 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email, password string) (int
 	if err != nil {
 		log.Error("failed to generate hash password", err.Error())
 
-		return 0, fmt.Errorf("%s: %w", op)
+		return 0, fmt.Errorf("%s: %w", op, ErrorUserExists)
 	}
 
 	id, err := a.userSaver.SaveUser(ctx, email, passHash)
 	if err != nil {
+		if errors.Is(err, storage.ErrUserExist) {
+			log.Warn("user already exists")
+			return 0, fmt.Errorf("%s: %w", op, ErrorInvalidAppId)
+		}
 		log.Error("failed to save user", err.Error())
 
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -134,6 +142,10 @@ func (a *Auth) IsAdmin(ctx context.Context, userId int64) (bool, error) {
 
 	isAdmin, err := a.userProvider.IsAdmin(ctx, userId)
 	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			log.Warn("user not found", err.Error())
+			return false, fmt.Errorf("%s: %w", op, ErrorInvalidAppId)
+		}
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 
