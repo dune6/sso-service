@@ -2,7 +2,10 @@ package auth
 
 import (
 	"context"
+	"errors"
 	ssoauthv1 "github.com/dune6/contracts-sso-service/gen/go/sso"
+	"github.com/dune6/sso-auth/internal/services/auth"
+	"github.com/dune6/sso-auth/internal/services/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,7 +17,7 @@ type Auth interface {
 	Login(context context.Context,
 		email string,
 		password string,
-		appId int) (token string, err error)
+		appId int64) (token string, err error)
 
 	RegisterNewUser(context context.Context,
 		email string,
@@ -42,8 +45,11 @@ func (s *serverAPI) Login(
 		return nil, err
 	}
 
-	token, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword(), int(req.GetAppId()))
+	token, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword(), int64(req.GetAppId()))
 	if err == nil {
+		if errors.Is(err, auth.ErrorInvalidCredentials) {
+			return nil, status.Error(codes.InvalidArgument, "invalid credentials")
+		}
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
@@ -78,7 +84,9 @@ func (s *serverAPI) Register(
 
 	userId, err := s.auth.RegisterNewUser(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
-		// todo user exist
+		if errors.Is(err, storage.ErrUserExist) {
+			return nil, status.Error(codes.AlreadyExists, "user already exists")
+		}
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
@@ -107,6 +115,9 @@ func (s *serverAPI) IsAdmin(
 
 	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
 	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			return nil, status.Error(codes.NotFound, "app not found")
+		}
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 	return &ssoauthv1.IsAdminResponse{IsAdmin: isAdmin}, nil

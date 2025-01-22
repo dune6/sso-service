@@ -2,7 +2,8 @@ package app
 
 import (
 	grpcapp "github.com/dune6/sso-auth/internal/app/grpc"
-	authgrpc "github.com/dune6/sso-auth/internal/grpc/auth"
+	"github.com/dune6/sso-auth/internal/services/auth"
+	"github.com/dune6/sso-auth/internal/services/storage/sqlite"
 	"log/slog"
 	"time"
 )
@@ -17,11 +18,15 @@ func New(
 	storagePath string,
 	tokenTTL time.Duration,
 ) *App {
-	// todo инициализировать хранилище
 
-	// todo init auth service (auth)
+	storage, err := sqlite.New(storagePath)
+	if err != nil {
+		panic(err)
+	}
 
-	grpcApp := grpcapp.New(log, grpcPort)
+	authService := auth.New(log, storage, storage, storage, tokenTTL)
+
+	grpcApp := grpcapp.New(log, grpcPort, authService)
 
 	return &App{
 		GRPCServer: grpcApp,

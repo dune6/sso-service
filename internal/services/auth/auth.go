@@ -68,10 +68,7 @@ func (a *Auth) Login(ctx context.Context, email, password string, appId int64) (
 	log.Info("attempting to login")
 	user, err := a.userProvider.User(ctx, email)
 	if err != nil {
-		if errors.Is(
-			err,
-			storage.ErrUserNotFound,
-		) {
+		if errors.Is(err, storage.ErrUserNotFound) {
 			a.log.Warn("user not found")
 			return "", fmt.Errorf("%s: %w", op, ErrorInvalidCredentials)
 		}
